@@ -1,0 +1,105 @@
+package scaffolded.nsJS;
+
+import javax.ws.rs.Consumes;
+import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
+
+import org.drools.demo.JSR223DMNRuntime;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import org.kie.kogito.dmn.rest.DMNJSONUtils;
+import org.kie.kogito.dmn.rest.KogitoDMNResult;
+
+@Tag(name = "demo", description = "For use with JSR223")
+@Path("/demo/BMI_JS")
+public class BMI__JSResource {
+
+    @javax.inject.Inject()
+    JSR223DMNRuntime application;
+
+    private static final String KOGITO_DECISION_INFOWARN_HEADER = "X-Kogito-decision-messages";
+
+    private static final String KOGITO_EXECUTION_ID_HEADER = "X-Kogito-execution-id";
+
+    private static final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper().registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule()).registerModule(new com.fasterxml.jackson.databind.module.SimpleModule().addSerializer(org.kie.dmn.feel.lang.types.impl.ComparablePeriod.class, new org.kie.kogito.dmn.rest.DMNFEELComparablePeriodSerializer())).disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DURATIONS_AS_TIMESTAMPS);
+
+    @POST
+    @Path("/")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @org.eclipse.microprofile.openapi.annotations.parameters.RequestBody(content = @org.eclipse.microprofile.openapi.annotations.media.Content(mediaType = "application/json", schema = @org.eclipse.microprofile.openapi.annotations.media.Schema(ref = "/dmnDefinitions.json#/definitions/InputSet2")), description = "DMN input")
+    @org.eclipse.microprofile.openapi.annotations.responses.APIResponse(content = @org.eclipse.microprofile.openapi.annotations.media.Content(mediaType = "application/json", schema = @org.eclipse.microprofile.openapi.annotations.media.Schema(ref = "/dmnDefinitions.json#/definitions/OutputSet2")), description = "DMN output")
+    public Response dmn(java.util.Map<String, Object> variables) {
+        org.kie.kogito.decision.DecisionModel decision = application.getDecisionModel("nsJS", "BMI_JS");
+        org.kie.dmn.api.core.DMNResult decisionResult = decision.evaluateAll(DMNJSONUtils.ctx(decision, variables));
+        KogitoDMNResult result = new KogitoDMNResult("nsJS", "BMI_JS", decisionResult);
+        return enrichResponseHeaders(decisionResult, extractContextIfSucceded(result));
+    }
+
+    @GET
+    @Produces(MediaType.APPLICATION_XML)
+    public String dmn() throws java.io.IOException {
+        return new String(org.drools.core.util.IoUtils.readBytesFromInputStream(this.getClass().getResourceAsStream(org.kie.dmn.feel.codegen.feel11.CodegenStringUtil.escapeIdentifier("BMI_JS") + ".dmn_nologic")));
+    }
+
+    private ResponseBuilder extractContextIfSucceded(KogitoDMNResult result) {
+        if (!result.hasErrors()) {
+            return Response.ok(buildResponse(result.getDmnContext()));
+        } else {
+            return buildFailedEvaluationResponse(result);
+        }
+    }
+
+    private ResponseBuilder buildFailedEvaluationResponse(KogitoDMNResult result) {
+        return Response.status(javax.ws.rs.core.Response.Status.INTERNAL_SERVER_ERROR).entity(result);
+    }
+
+    private ResponseBuilder extractSingletonDSIfSucceded(KogitoDMNResult result) {
+        if (!result.hasErrors()) {
+            return Response.ok(buildResponse(result.getDecisionResults().get(0).getResult()));
+        } else {
+            return buildFailedEvaluationResponse(result);
+        }
+    }
+
+    private Response buildDMNResultResponse(KogitoDMNResult result) {
+        if (!result.hasErrors()) {
+            return Response.ok(buildResponse(result)).build();
+        } else {
+            return buildFailedEvaluationResponse(result).build();
+        }
+    }
+
+    private String buildResponse(Object o) {
+        try {
+            return objectMapper.writeValueAsString(o);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private Response enrichResponseHeaders(org.kie.dmn.api.core.DMNResult result, ResponseBuilder responseBuilder) {
+        if (!result.hasErrors() && !result.getMessages().isEmpty()) {
+            String infoWarns = result.getMessages().stream().map(m -> m.getLevel() + " " + m.getMessage()).collect(java.util.stream.Collectors.joining(", "));
+            responseBuilder.header(KOGITO_DECISION_INFOWARN_HEADER, infoWarns);
+        }
+        org.kie.kogito.decision.DecisionExecutionIdUtils.getOptional(result.getContext()).ifPresent(executionId -> responseBuilder.header(KOGITO_EXECUTION_ID_HEADER, executionId));
+        return responseBuilder.build();
+    }
+
+    @POST
+    @Path("/dmnresult")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @org.eclipse.microprofile.openapi.annotations.parameters.RequestBody(content = @org.eclipse.microprofile.openapi.annotations.media.Content(mediaType = "application/json", schema = @org.eclipse.microprofile.openapi.annotations.media.Schema(ref = "/dmnDefinitions.json#/definitions/InputSet2")), description = "DMN input")
+    public Response dmn_dmnresult(java.util.Map<String, Object> variables) {
+        org.kie.kogito.decision.DecisionModel decision = application.getDecisionModel("nsJS", "BMI_JS");
+        org.kie.dmn.api.core.DMNResult decisionResult = decision.evaluateAll(DMNJSONUtils.ctx(decision, variables));
+        KogitoDMNResult result = new KogitoDMNResult("nsJS", "BMI_JS", decisionResult);
+        return buildDMNResultResponse(result);
+    }
+}
