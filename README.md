@@ -3,7 +3,7 @@
 don't forget to start with
 
 ```bash
-docker run -p 80:5000 jsr223-powerfx-server
+docker run -p 5000:80 jsr223-powerfx-server
 ```
 
 # dmn-js-powerfx-demo Project
